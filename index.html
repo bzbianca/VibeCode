@@ -79,9 +79,9 @@
 <div id="score">0</div>
 <div id="rare-items-key">
   <strong>Rare Items Key:</strong><br>
-  Rare Item 1: 50%<br>
-  Rare Item 2: 30%<br>
-  Rare Item 3: 20%
+  Croissant: 50%<br>
+  Watermelon: 30%<br>
+  Mr. Gardner: 20%
 </div>
 
 <script>
@@ -103,6 +103,7 @@
   const scoreElement = document.getElementById('score');
   let goalDirection = 1;
   let nextDraggableId = 4;
+  let gameWon = false; // Flag to track if the game has been won
 
   function updateScore() {
     scoreElement.textContent = score;
@@ -172,9 +173,9 @@
 
   function spawnRareItem(x, y = spawnYPosition) {
   const rareItems = [
-    { name: "Rare Item 1", probability: 0.5, imageUrl: "items/croissant.png" },
-    { name: "Rare Item 2", probability: 0.3, imageUrl: "items/watermelon.png" },
-    { name: "Rare Item 3", probability: 0.2, imageUrl: "items/mrgardner.png" },
+    { name: "Rare Item 1", probability: 0.5, imageUrl: "items/croissant.png", id: "rare-item-1" },
+    { name: "Rare Item 2", probability: 0.3, imageUrl: "items/watermelon.png", id: "rare-item-2" },
+    { name: "Rare Item 3", probability: 1, imageUrl: "items/mrgardner.png", id: "rare-item-3" },
   ];
 
   const randomValue = Math.random();
@@ -213,9 +214,9 @@
     const goalRect = goalElement.getBoundingClientRect();
 
     return !(draggableRect.right < goalRect.left ||
-             draggableRect.left > goalRect.right ||
-             draggableRect.bottom < goalRect.top ||
-             draggableRect.top > goalRect.bottom);
+              draggableRect.left > goalRect.right ||
+              draggableRect.bottom < goalRect.top ||
+              draggableRect.top > goalRect.bottom);
   }
 
   function moveGoal() {
@@ -261,7 +262,7 @@
       item.isInGoal = true; // Mark as entered the goal
     }
 
-    if (item.isInGoal && !currentCollision && !item.hasScored) {
+    if (item.isInGoal && !currentCollision && !item.hasScored && !gameWon) {
       item.hasScored = true; // Mark as scored
 
       score++;
@@ -269,6 +270,7 @@
 
       // Check if the scored item is "Rare Item 3" by ID
       if (draggable.id === "rare-item-3") {
+        gameWon = true; // Set the gameWon flag to true
         alert("You Win!");
       }
 
