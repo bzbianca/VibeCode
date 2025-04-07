@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Click and Drag Game with Rare Items</title>
+<style>
+  body { margin: 0; overflow: hidden; background-color: #f0f0f0; position: relative; }
+  .draggable {
+    position: absolute;
+    background-color: transparent;
+    width: 80px;
+    height: 80px;
+    cursor: grab;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+    font-size: 16px;
+    user-select: none;
+    overflow: hidden; /* To clip images inside the draggable div */
+  }
+  .draggable img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%; /* Optional: makes images circular */
+  pointer-events: none; /* Disables pointer events on the image */
+  }
+  .rare {
+    background-color: transparent;
+    font-weight: bold;
+    color: black;
+  }
+  #goal {
+    position: absolute;
+    top: 0;
+    height: 300px;
+    width: 300px;
+    background: url("items/basketballhoop.png");
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: white;
+    font-size: 24px;
+    pointer-events: none;
+  }
+  #score {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 96px;
+    font-weight: bold;
+    color: #333;
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    user-select: none;
+    z-index: -1; /* Keeps score behind other elements */
+  }
+  #rare-items-key {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: white;
+    border: 2px solid #ccc;
+    padding: 10px;
+    font-family: sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+</style>
+</head>
+<body>
+
+<div id="goal"></div>
+<div id="score">0</div>
+<div id="rare-items-key">
+  <strong>Rare Items Key:</strong><br>
+  Rare Item 1: 50%<br>
+  Rare Item 2: 30%<br>
+  Rare Item 3: 20%
+</div>
+
+<script>
+  const gravity = 0.7;
+  const verticalFriction = 0.97;
+  const horizontalFriction = 0.94;
+  const goalMoveSpeed = 3;
+  const goalChangeDirectionProbability = 0.01;
+  const pointsToAddItem = 5;
+  let spawnYPosition = 100; // Set default spawn y-position
+
+  let draggables = [];
+  let isDragging = false;
+  let currentDraggable = null;
+  let offsetX, offsetY;
+  let lastMouseX, lastMouseY;
+  let score = 0;
+  const goalElement = document.getElementById('goal');
+  const scoreElement = document.getElementById('score');
+  let goalDirection = 1;
+  let nextDraggableId = 4;
+
+  function updateScore() {
+    scoreElement.textContent = score;
+  }
+
+  function createNewDraggable(x, y = spawnYPosition, text, isRare = false, imageUrl, id) {
+  const draggableElement = document.createElement('div');
+  draggableElement.classList.add('draggable');
+  if (isRare) {
+    draggableElement.classList.add('rare');
+  }
+  if (id) {
+    draggableElement.id = id; // Assign the unique id if provided
+  }
+  draggableElement.style.left = `${x}px`;
+  draggableElement.style.top = `${y}px`;
+
+  // Add image if provided
+  draggableElement.textContent = ""; // Clear text for draggables
+  if (imageUrl) {
+    const imageElement = document.createElement('img');
+    imageElement.src = imageUrl;
+    imageElement.style.width = "100%";
+    imageElement.style.height = "100%";
+    imageElement.style.objectFit = "cover";
+    imageElement.style.borderRadius = "50%"; // Optional: makes images circular
+    imageElement.style.pointerEvents = "none"; // Prevent interaction with the image
+    draggableElement.appendChild(imageElement);
+  }
+
+  document.body.appendChild(draggableElement);
+
+  const draggableObject = {
+    element: draggableElement,
+    velocityX: 0,
+    velocityY: 0,
+    isInGoal: false,
+    hasScored: false
+  };
+
+  draggableElement.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    currentDraggable = draggableObject;
+    offsetX = e.clientX - draggableElement.getBoundingClientRect().left;
+    offsetY = e.clientY - draggableElement.getBoundingClientRect().top;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    draggableObject.velocityX = 0;
+    draggableObject.velocityY = 0;
+    draggableElement.style.cursor = 'grabbing';
+    draggableObject.isInGoal = checkGoalCollision(draggableElement);
+    draggableObject.hasScored = false;
+    updateScore();
+  });
+
+  draggables.push(draggableObject);
+
+  // Remove oldest element if needed
+  if (draggables.length > 3) {
+    const oldestItem = draggables.shift();
+    if (oldestItem && oldestItem.element.parentNode) {
+      oldestItem.element.parentNode.removeChild(oldestItem.element);
+    }
+  }
+}
+
+
+  function spawnRareItem(x, y = spawnYPosition) {
+  const rareItems = [
+    // { name: "Rare Item 1", probability: 0.5, imageUrl: "items/croissant.png" },
+    { name: "Rare Item 2", probability: 0.3, imageUrl: "items/watermelon.png" },
+    { name: "Rare Item 3", probability: 0.2, imageUrl: "items/mrgardner.png" },
+  ];
+
+  const randomValue = Math.random();
+  let cumulativeProbability = 0;
+
+  for (const item of rareItems) {
+    cumulativeProbability += item.probability;
+    if (randomValue <= cumulativeProbability) {
+      createNewDraggable(x, y, item.name, true, item.imageUrl, item.id);
+      break;
+    }
+  }
+}
+
+  document.addEventListener('mouseup', (e) => {
+    if (isDragging) {
+      isDragging = false;
+      currentDraggable.element.style.cursor = 'grab';
+      currentDraggable.velocityX = e.clientX - lastMouseX;
+      currentDraggable.velocityY = e.clientY - lastMouseY;
+      currentDraggable = null;
+      updateScore();
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    currentDraggable.element.style.left = `${e.clientX - offsetX}px`;
+    currentDraggable.element.style.top = `${e.clientY - offsetY}px`;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  function checkGoalCollision(draggable) {
+    const draggableRect = draggable.getBoundingClientRect();
+    const goalRect = goalElement.getBoundingClientRect();
+
+    return !(draggableRect.right < goalRect.left ||
+             draggableRect.left > goalRect.right ||
+             draggableRect.bottom < goalRect.top ||
+             draggableRect.top > goalRect.bottom);
+  }
+
+  function moveGoal() {
+    const currentLeft = goalElement.offsetLeft;
+    const goalWidth = goalElement.offsetWidth;
+
+    if (Math.random() < goalChangeDirectionProbability) {
+      goalDirection *= -1;
+    }
+
+    let newLeft = currentLeft + goalDirection * goalMoveSpeed;
+
+    if (newLeft < 0) {
+      newLeft = 0;
+      goalDirection = 1;
+    } else if (newLeft + goalWidth > window.innerWidth) {
+      newLeft = window.innerWidth - goalWidth;
+      goalDirection = -1;
+    }
+
+    goalElement.style.left = `${newLeft}px`;
+  }
+
+  function gameLoop() {
+  moveGoal();
+
+  draggables.forEach(item => {
+    let velocityX = item.velocityX;
+    let velocityY = item.velocityY;
+    const draggable = item.element;
+
+    if (!isDragging || currentDraggable !== item) {
+      velocityY += gravity;
+    } else {
+      velocityY = 0;
+    }
+
+    let newTop = draggable.offsetTop + velocityY;
+    let newLeft = draggable.offsetLeft + velocityX;
+    const currentCollision = checkGoalCollision(draggable);
+
+    if (currentCollision && !item.isInGoal) {
+      item.isInGoal = true; // Mark as entered the goal
+    }
+
+    if (item.isInGoal && !currentCollision && !item.hasScored) {
+      item.hasScored = true; // Mark as scored
+
+      score++;
+      updateScore();
+
+      // Check if the scored item is "Rare Item 3" by ID
+      if (draggable.id === "rare-item-3") {
+        alert("You Win!");
+      }
+
+      if (score % pointsToAddItem === 0) {
+        const newX = window.innerWidth * 0.25;
+        if (Math.random() < 0.5) {
+          spawnRareItem(newX); // Spawn a rare item
+        } else {
+          createNewDraggable(newX, spawnYPosition, `Item ${nextDraggableId}`, false, "items/basketball.png");
+          nextDraggableId++;
+        }
+      }
+    }
+
+    item.isInGoal = currentCollision;
+
+    if (newTop + draggable.offsetHeight > window.innerHeight) {
+      newTop = window.innerHeight - draggable.offsetHeight;
+      velocityY *= -verticalFriction;
+    }
+    if (newTop < 0) {
+      newTop = 0;
+      velocityY *= -verticalFriction;
+    }
+
+    if (newLeft + draggable.offsetWidth > window.innerWidth) {
+      newLeft = window.innerWidth - draggable.offsetWidth;
+      velocityX *= -horizontalFriction;
+    }
+    if (newLeft < 0) {
+      newLeft = 0;
+      velocityX *= -horizontalFriction;
+    }
+
+    draggable.style.top = `${newTop}px`;
+    draggable.style.left = `${newLeft}px`;
+
+    item.velocityX = velocityX * horizontalFriction;
+    item.velocityY = velocityY * verticalFriction;
+  });
+
+  requestAnimationFrame(gameLoop);
+}
+
+
+  // Create initial draggable items
+  createNewDraggable(50, spawnYPosition, "One", false, "items/basketball.png");
+  createNewDraggable(150, spawnYPosition, "Two", false, "items/basketball.png");
+  createNewDraggable(250, spawnYPosition, "Three", false, "items/basketball.png");
+
+  // Initialize goal position
+  goalElement.style.left = `${window.innerWidth / 2 - goalElement.offsetWidth / 2}px`;
+
+  gameLoop();
+</script>
+
+</body>
+</html>
